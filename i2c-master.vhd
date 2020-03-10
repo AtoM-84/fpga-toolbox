@@ -4,7 +4,7 @@ USE ieee.numeric_std.ALL;
 
 ENTITY i2c_master IS
     GENERIC (
-        CLK_DIV : INTEGER := 100;
+        CLK_DIV : INTEGER := 25;
         N : INTEGER := 32 --Max byte number read/written
     );
     PORT (
@@ -12,8 +12,8 @@ ENTITY i2c_master IS
         i_rst : IN std_logic; -- asynhcronous reset signal
         i_i2c_start : IN std_logic; -- start signal (from FSM)
         i_device_address : IN std_logic_vector(6 DOWNTO 0); -- device address evaluated when start signal is high
-        i_read_byte_nb : IN INTEGER RANGE 0 TO N-1;
-        i_write_byte_nb : IN INTEGER RANGE 0 TO N-1;
+        i_read_byte_nb : IN INTEGER RANGE 0 TO N - 1;
+        i_write_byte_nb : IN INTEGER RANGE 0 TO N - 1;
         i_R_W : IN std_logic; -- Conventions are read = 1, write = 0 from I2C conventions
         i_data : IN std_logic_vector(7 DOWNTO 0); -- data input to i2c assessed when data_access is high
         i_sda : IN std_logic; -- serial data from slave - same pin as o_sda
@@ -44,7 +44,7 @@ ARCHITECTURE behavioral OF i2c_master IS
         ST_END);
 
     --Counters signals--
-    SIGNAL r_clock_counter : INTEGER RANGE 0 TO CLK_DIV * 2; -- counter to divide clock
+    SIGNAL r_clock_counter : INTEGER RANGE 0 TO CLK_DIV * 4; -- counter to divide clock
     SIGNAL r_bit_loop_counter : INTEGER RANGE 0 TO 7; -- bit counter to iterate on a byte
     SIGNAL r_write_counter : INTEGER RANGE 0 TO 31; -- number of word (bytes) to be written
     SIGNAL r_read_counter : INTEGER RANGE 0 TO 31; -- number of word (bytes) to be read
@@ -59,6 +59,7 @@ ARCHITECTURE behavioral OF i2c_master IS
     SIGNAL r_data_out : std_logic_vector(7 DOWNTO 0);
     SIGNAL r_data_ready : std_logic;
     SIGNAL r_data_access : std_logic;
+    SIGNAL r_divided_clock : std_logic;
     --FSM signals--
     SIGNAL r_st_present : t_i2c_master_fsm; -- present state
     SIGNAL w_st_next : t_i2c_master_fsm; -- next state
@@ -66,7 +67,7 @@ ARCHITECTURE behavioral OF i2c_master IS
 BEGIN
     o_busy <= r_busy;
     w_i2c_start <= i_i2c_start;
-
+    o_scl <= r_divided_clock;
     -- counters
 
     p_read_counter : PROCESS (i_clk, i_rst)
@@ -103,13 +104,37 @@ BEGIN
     BEGIN
         IF (i_rst = '0') THEN
             r_clock_counter = 0;
+            r_divided_clock = '1';
         ELSIF rising_edge(clk) THEN
             IF (r_clock_active = '1') THEN
-                r_clock_counter = r_clock_counter + 1;
+                IF (r_clock_counter = 0) THEN
+                    r_divided_clock <= '0';
+                ELSIF (r_clock_counter = CLK_DIV/4) THEN
+                    r_divided_clock <= '1';
+                    r_clock_counter := r_clock_counter + 1;
+                ELSIF (r_clock_counter = CLK_DIV * 3/4) THEN
+                    r_divided_clock <= '0';
+                    r_clock_counter := r_clock_counter + 1;
+                ELSIF (r_clock_counter = CLK_DIV) THEN
+                    r_clock_counter := 0;
+                ELSE
+                    r_clock_counter := r_clock_counter + 1;
+                END IF;
+            ELSIF (r_clock_active = '0') THEN
+                r_clock_counter = 0;
+                r_divided_clock = '1';
             END IF;
-
         END IF;
     END PROCESS p_clock_counter;
+
+    p_bit_loop : PROCESS (i_clk, i_rst)
+    BEGIN
+        IF i_rst = '0' THEN
+
+        ELSIF rising_edge(clk) THEN
+
+        END IF;
+    END PROCESS p_bit_loop;
 
     -- State changer and FSM
     p_state : PROCESS (i_clk, i_rst)
