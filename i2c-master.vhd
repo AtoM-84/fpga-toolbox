@@ -35,7 +35,6 @@ ARCHITECTURE behavioral OF i2c_master IS
     TYPE t_i2c_master_fsm IS (
         ST_IDLE,
         ST_START,
-        ST_ADDRESSING,
         ST_ACKNOWLEDGMENT,
         ST_COUNTERS_STATUS,
         ST_WRITE_DATA,
@@ -57,7 +56,7 @@ ARCHITECTURE behavioral OF i2c_master IS
     --Data signals--
     SIGNAL r_data_in : std_logic_vector(7 DOWNTO 0); -- register to collect new data to be written
     SIGNAL r_data_out : std_logic_vector(7 DOWNTO 0);
-    SIGNAL w_data_out : std_logic;
+    SIGNAL w_sda_out : std_logic;
     SIGNAL r_data_ready : std_logic;
     SIGNAL r_data_access : std_logic;
     SIGNAL r_divided_clock : std_logic;
@@ -69,7 +68,7 @@ BEGIN
     o_busy <= r_busy;
     w_i2c_start <= i_i2c_start;
     --condition à mettre sur ligne SDA pour état de repos?
-    o_sda <= w_data_out;
+    o_sda <= w_sda_out;
     o_scl <= r_divided_clock;
 
     -- counters
@@ -78,7 +77,7 @@ BEGIN
     BEGIN
         IF (i_rst = '1') THEN
             r_read_counter := 0;
-        ELSIF w_i2c_start = '1' THEN
+        ELSIF (w_i2c_start = '1') THEN
             r_read_counter <= i_read_byte_nb;
         ELSIF --(condition de décrément à voir en fin d'étape READ) THEN
             r_read_counter <= r_read_counter - 1;
@@ -93,7 +92,7 @@ BEGIN
     BEGIN
         IF (i_rst = '1') THEN
             r_write_counter := 0;
-        ELSIF w_i2c_start = '1' THEN
+        ELSIF (w_i2c_start = '1') THEN
             r_write_counter <= i_write_byte_nb;
         ELSIF --(condition de décrément à voir en fin d'étape WRITE) THEN
             r_write_counter <= r_write_counter - 1;
@@ -149,6 +148,19 @@ BEGIN
         END IF;
     END PROCESS p_bit_loop_counter;
 
+    p_addressing_routing : PROCESS (i_clk, i_rst)
+    BEGIN
+        IF (i_rst = '0') THEN
+            r_data <= (OTHERS => '0');
+        ELSIF rising_edge(clk) THEN
+            IF (w_i2c_start = '1') THEN
+                r_data <= std_logic_vector(std_logic_vector(resize(unsigned(i_device_address), r_data'length)) SLL 1) & i_R_W;
+            ELSE
+                r_data <= r_data;
+            END IF;
+        END IF;
+    END PROCESS p_addressing_routing;
+
     -- State changer and FSM
     p_state : PROCESS (i_clk, i_rst)
     BEGIN
@@ -173,9 +185,11 @@ BEGIN
             WHEN ST_START =>
                 r_busy <= '1';
                 r_error <= '0';
-            WHEN ST_ADDRESSING =>
-                r_busy <= '1';
-                r_error <= '0';
+                IF (w_i2c_start = '0') THEN
+                    w_st_next <= ST_WRITE_DATA;
+                ELSE
+                    w_st_next <= r_st_present;
+                END IF;
             WHEN ST_ACKNOWLEDGMENT =>
                 r_busy <= '1';
                 r_error <= '0';
