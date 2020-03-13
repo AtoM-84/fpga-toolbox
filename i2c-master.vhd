@@ -50,13 +50,14 @@ ARCHITECTURE behavioral OF i2c_master IS
     SIGNAL r_timeout_counter : std_logic_vector(15 DOWNTO 0); --timeout counter in case of no received words while waiting one
     --Status signals--
     SIGNAL r_busy : std_logic; -- busy status
+    SIGNAL r_read_write_done : std_logic;
     SIGNAL r_error : std_logic; -- error status
     SIGNAL r_error_code : std_logic_vector(2 DOWNTO 0);
     SIGNAL w_i2c_start : std_logic;
+    SIGNAL w_i2c_end : std_logic;
+    SIGNAL r_ack : std_logic;
     --Data signals--
-    SIGNAL r_data_in : std_logic_vector(7 DOWNTO 0); -- register to collect new data to be written
-    SIGNAL r_data_out : std_logic_vector(7 DOWNTO 0);
-    SIGNAL w_sda_out : std_logic;
+    SIGNAL r_data : std_logic_vector(7 DOWNTO 0); -- register to collect new data to be written
     SIGNAL r_data_ready : std_logic;
     SIGNAL r_data_access : std_logic;
     SIGNAL r_divided_clock : std_logic;
@@ -67,8 +68,8 @@ ARCHITECTURE behavioral OF i2c_master IS
 BEGIN
     o_busy <= r_busy;
     w_i2c_start <= i_i2c_start;
+    o_i2c_end <= w_i2c_end;
     --condition à mettre sur ligne SDA pour état de repos?
-    o_sda <= w_sda_out;
     o_scl <= r_divided_clock;
 
     -- counters
@@ -112,13 +113,13 @@ BEGIN
             IF (r_clock_active = '1') THEN
                 IF (r_clock_counter = 0) THEN
                     r_divided_clock <= '0';
-                ELSIF (r_clock_counter = CLK_DIV/4) THEN
+                ELSIF (r_clock_counter = CLK_DIV) THEN
                     r_divided_clock <= '1';
                     r_clock_counter := r_clock_counter + 1;
-                ELSIF (r_clock_counter = CLK_DIV * 3/4) THEN
+                ELSIF (r_clock_counter = CLK_DIV * 3) THEN
                     r_divided_clock <= '0';
                     r_clock_counter := r_clock_counter + 1;
-                ELSIF (r_clock_counter = CLK_DIV) THEN
+                ELSIF (r_clock_counter = CLK_DIV * 4) THEN
                     r_clock_counter := 0;
                 ELSE
                     r_clock_counter := r_clock_counter + 1;
@@ -135,20 +136,38 @@ BEGIN
         IF (i_rst = '0') THEN
             r_bit_loop_counter := 7;
         ELSIF rising_edge(clk) THEN
-            IF (r_clock_active = '1') THEN
+            IF ((r_clock_active = '1') AND (r_read_write_done = '0')) THEN
                 IF (r_clock_counter = 0) THEN
                     -- on présente à la sortie la valeur du bit de data
-                    w_data_out <= r_data_out(r_bit_loop_counter);
-                ELSIF (r_clock_counter = CLK_DIV) THEN
-                    r_bit_loop_counter := r_bit_loop_counter - 1;
-                ELSIF (r_clock_counter = CLK_DIV & r_bit_loop_counter = 0) THEN
+                    IF (r_write_mode = '1') THEN
+                        o_sda <= r_data(r_bit_loop_counter);
+                    ELSIF (r_write_mode = '0') THEN
+                        o_sda <= '1';
+                    END IF;
+                ELSIF (r_clock_counter = CLK_DIV AND r_bit_loop_counter = 0) THEN
                     r_bit_loop_counter := 7;
+                    r_read_write_done <= '1';
+                ELSIF (r_clock_counter = CLK_DIV * 4) THEN
+                    r_bit_loop_counter := r_bit_loop_counter - 1;
                 END IF;
             END IF;
         END IF;
     END PROCESS p_bit_loop_counter;
 
-    p_addressing_routing : PROCESS (i_clk, i_rst)
+    p_acknowledgement : PROCESS (i_clk, i_rst)
+    BEGIN
+        IF (i_rst = '0') THEN
+            r_ack <= '0';
+        ELSIF rising_edge(clk) THEN
+            IF (r_read_write_done = '1' AND r_clock_counter = CLK_DIV * 2) THEN
+                r_ack <= NOT(i_sda);
+            ELSIF (r_clock_counter = CLK_DIV * 4) THEN
+                r_read_write_done = '0';
+            END IF;
+        END IF;
+    END PROCESS p_acknowledgement;
+
+    p_addressing_start : PROCESS (i_clk, i_rst)
     BEGIN
         IF (i_rst = '0') THEN
             r_data <= (OTHERS => '0');
@@ -177,42 +196,80 @@ BEGIN
             WHEN ST_IDLE =>
                 r_busy <= '0';
                 r_error <= '0';
+                r_clock_active <= '0';
                 IF (w_i2c_start = '1') THEN
                     w_st_next <= ST_START;
                 ELSE
                     w_st_next <= r_st_present;
                 END IF;
+
             WHEN ST_START =>
                 r_busy <= '1';
                 r_error <= '0';
+                r_clock_active <= '0';
                 IF (w_i2c_start = '0') THEN
                     w_st_next <= ST_WRITE_DATA;
+                    r_write_mode <= '1';
                 ELSE
                     w_st_next <= r_st_present;
                 END IF;
+
             WHEN ST_ACKNOWLEDGMENT =>
                 r_busy <= '1';
                 r_error <= '0';
+                r_clock_active <= '1';
+                IF (r_read_write_done = '0') THEN
+                    IF r_ack = '1' THEN
+                        w_st_next <= ST_COUNTERS_STATUS;
+                    ELSIF (r_ack = '0' AND r_read_counter = '0') THEN
+                        w_st_next <= ST_END;
+                        w_i2c_end <= '1';
+                        else
+                        w_st_next <= r_st_present;
+                    END IF;
+                ELSE
+                    w_st_next <= r_st_present;
+                END IF;
+
             WHEN ST_COUNTERS_STATUS =>
                 r_busy <= '1';
                 r_error <= '0';
+                r_clock_active <= '0';
+
+
             WHEN ST_WRITE_DATA =>
                 r_busy <= '1';
                 r_error <= '0';
+                r_clock_active <= '1';
+                IF (r_read_write_done = '1') THEN
+                    w_st_next <= ST_ACKNOLEDGMENT;
+                    r_write_mode <= '0';
+                ELSE
+                    w_st_next <= r_st_present;
+                END IF;
+                
             WHEN ST_READ_DATA =>
                 r_busy <= '1';
                 r_error <= '0';
-
+                r_clock_active <= '1';
+                IF (r_read_write_done = '1') THEN
+                    w_st_next <= ST_ACKNOLEDGMENT;
+                    r_read_mode <= '0';
+                ELSE
+                    w_st_next <= r_st_present;
+                END IF;
             WHEN ST_ERROR =>
                 r_busy <= '1';
                 r_error <= '1';
-
+                r_clock_active <= '0';
             WHEN ST_END =>
                 r_busy <= '1';
                 r_error <= '0';
+                r_clock_active <= '0';
             WHEN OTHERS =>
                 r_busy <= '0';
                 r_error <= '0';
+                r_clock_active <= '0';
                 w_st_next <= r_st_present;
         END CASE;
     END PROCESS p_fsm;
