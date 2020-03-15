@@ -56,8 +56,10 @@ ARCHITECTURE behavioral OF i2c_master IS
     SIGNAL w_i2c_start : std_logic;
     SIGNAL r_i2c_end : std_logic;
     SIGNAL r_ack : std_logic;
+    SIGNAL r_clock_active : std_logic;
     --Data signals--
     SIGNAL r_data : std_logic_vector(7 DOWNTO 0);
+    SIGNAL w_data_out : std_logic_vector(7 DOWNTO 0);
     SIGNAL r_data_ready : std_logic;
     SIGNAL r_data_access : std_logic;
     SIGNAL r_divided_clock : std_logic;
@@ -73,30 +75,30 @@ BEGIN
     o_error <= r_error;
     o_data_access <= r_data_access;
     o_data_ready <= r_data_ready;
-
+    o_data <= w_data_out;
     -- counters
     p_clock_counter : PROCESS (i_clk, i_rst, r_clock_active)
     BEGIN
         IF (i_rst = '0') THEN
-            r_clock_counter = 0;
+            r_clock_counter <= 0;
             r_divided_clock <= '1';
-        ELSIF rising_edge(clk) THEN
+        ELSIF rising_edge(i_clk) THEN
             IF (r_clock_active = '1') THEN
                 IF (r_clock_counter = 0) THEN
                     r_divided_clock <= '0';
                 ELSIF (r_clock_counter = CLK_DIV) THEN
                     r_divided_clock <= '1';
-                    r_clock_counter := r_clock_counter + 1;
+                    r_clock_counter <= r_clock_counter + 1;
                 ELSIF (r_clock_counter = CLK_DIV * 3) THEN
                     r_divided_clock <= '0';
-                    r_clock_counter := r_clock_counter + 1;
+                    r_clock_counter <= r_clock_counter + 1;
                 ELSIF (r_clock_counter = CLK_DIV * 4) THEN
-                    r_clock_counter := 0;
+                    r_clock_counter <= 0;
                 ELSE
-                    r_clock_counter := r_clock_counter + 1;
+                    r_clock_counter <= r_clock_counter + 1;
                 END IF;
             ELSIF (r_clock_active = '0') THEN
-                r_clock_counter := 0;
+                r_clock_counter <= 0;
                 r_divided_clock <= '1';
             END IF;
         END IF;
@@ -105,9 +107,9 @@ BEGIN
     p_bit_loop_counter : PROCESS (i_clk, i_rst, r_clock_active, r_clock_counter, r_write_mode, r_read_mode, r_read_write_done)
     BEGIN
         IF (i_rst = '0') THEN
-            r_bit_loop_counter := 7;
+            r_bit_loop_counter <= 7;
             o_sda <= '1';
-        ELSIF rising_edge(clk) THEN
+        ELSIF rising_edge(i_clk) THEN
             IF ((r_clock_active = '1') AND (r_read_write_done = '0')) THEN
                 IF (r_clock_counter = 0) THEN
                     IF (r_write_mode = '1') THEN
@@ -118,15 +120,15 @@ BEGIN
                 ELSIF (r_clock_counter = CLK_DIV * 2) THEN
                     IF (r_read_mode = '1') THEN
                         r_data(r_bit_loop_counter) <= i_sda;
-                    ELSIF (r_read_mode = '0')
+                    ELSIF (r_read_mode = '0') THEN
                         r_data <= r_data;
                     END IF;
                 ELSIF (r_clock_counter = CLK_DIV * 4) THEN
                     IF (r_bit_loop_counter = 0) THEN
-                        r_bit_loop_counter := 7;
+                        r_bit_loop_counter <= 7;
                         r_read_write_done <= '1';
                     ELSE
-                        r_bit_loop_counter := r_bit_loop_counter - 1;
+                        r_bit_loop_counter <= r_bit_loop_counter - 1;
                     END IF;
                 END IF;
             END IF;
@@ -137,43 +139,43 @@ BEGIN
     BEGIN
         IF (i_rst = '0') THEN
             r_data <= (OTHERS => '0');
-        ELSIF rising_edge(clk) THEN
+        ELSIF rising_edge(i_clk) THEN
             IF (w_i2c_start = '1') THEN
-                r_data <= std_logic_vector(std_logic_vector(resize(unsigned(i_device_address), r_data'length)) SLL 1) & i_R_W;
-                r_write_counter := r_write_counter + 1;
+                r_data <= std_logic_vector(shift_left(resize(unsigned(i_device_address), r_data'length), 1)) & i_R_W;
+                r_write_counter <= r_write_counter + 1;
             ELSE
                 r_data <= r_data;
             END IF;
         END IF;
-    END PROCESS p_addressing_routing;
+    END PROCESS p_addressing_start;
 
     p_read_counter : PROCESS (i_clk, i_rst, r_read_mode, r_bit_loop_counter)
     BEGIN
         IF (i_rst = '1') THEN
-            r_read_counter := 0;
+            r_read_counter <= 0;
         ELSIF (w_i2c_start = '1') THEN
-            r_read_counter := i_read_byte_nb;
+            r_read_counter <= i_read_byte_nb;
         ELSIF (r_read_mode = '1' AND r_bit_loop_counter = 0) THEN
-            r_read_counter := r_read_counter - 1;
-            r_data_out <= r_data;
+            r_read_counter <= r_read_counter - 1;
+            w_data_out <= r_data;
             r_data_ready <= '1';
         ELSE
-            r_read_counter := r_read_counter;
+            r_read_counter <= r_read_counter;
         END IF;
     END PROCESS p_read_counter;
 
-    p_write_counter : PROCESS (i_clk, i_rst, r_write_mode, bit_loop_counter)
+    p_write_counter : PROCESS (i_clk, i_rst, r_write_mode, r_bit_loop_counter)
     BEGIN
         IF (i_rst = '1') THEN
-            r_write_counter := 0;
+            r_write_counter <= 0;
         ELSIF (w_i2c_start = '1') THEN
-            r_write_counter := i_write_byte_nb;
+            r_write_counter <= i_write_byte_nb;
         ELSIF (r_write_mode = '1' AND r_bit_loop_counter = 0) THEN
-            r_write_counter := r_write_counter - 1;
+            r_write_counter <= r_write_counter - 1;
             r_data <= i_data;
             r_data_access <= '1';
         ELSE
-            r_write_counter := r_write_counter;
+            r_write_counter <= r_write_counter;
         END IF;
     END PROCESS p_write_counter;
 
@@ -181,7 +183,7 @@ BEGIN
     BEGIN
         IF (i_rst = '0') THEN
             r_ack <= '0';
-        ELSIF rising_edge(clk) THEN
+        ELSIF rising_edge(i_clk) THEN
             IF (r_read_write_done = '1' AND r_clock_counter = CLK_DIV * 2) THEN
                 r_ack <= NOT(i_sda);
             ELSIF (r_clock_counter = CLK_DIV * 4) THEN
@@ -228,7 +230,7 @@ BEGIN
                 r_error <= '0';
                 r_clock_active <= '1';
                 IF (r_read_write_done = '0') THEN
-                    IF (r_ack = '1' OR (r_ack = '0' AND r_read_counter = '0')) THEN
+                    IF (r_ack = '1') OR (r_ack = '0' AND r_read_counter = '0') THEN
                         w_st_next <= ST_COUNTERS_STATUS;
                     ELSE
                         w_st_next <= ST_ERROR;
