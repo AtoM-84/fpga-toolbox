@@ -5,15 +5,15 @@ USE ieee.numeric_std.ALL;
 ENTITY i2c_master IS
     GENERIC (
         CLK_DIV : INTEGER := 25;
-        N : INTEGER := 32 --Max byte number read/written
+        N : INTEGER := 6 --Max byte number read/written
     );
     PORT (
         i_clk : IN std_logic; -- system clock
         i_rst : IN std_logic; -- asynhcronous reset signal
         i_i2c_start : IN std_logic; -- start signal (from FSM)
         i_device_address : IN std_logic_vector(6 DOWNTO 0); -- device address evaluated when start signal is high
-        i_read_byte_nb : IN INTEGER RANGE 0 TO N - 1;
-        i_write_byte_nb : IN INTEGER RANGE 0 TO N - 1;
+        i_read_byte_nb : IN std_logic_vector(N - 1 DOWNTO 0);
+        i_write_byte_nb : IN std_logic_vector(N - 1 DOWNTO 0);
         i_R_W : IN std_logic; -- Conventions are read = 1, write = 0 from I2C conventions
         i_data : IN std_logic_vector(7 DOWNTO 0); -- data input to i2c assessed when data_access is high
         i_sda : IN std_logic; -- serial data from slave - same pin as o_sda
@@ -44,8 +44,8 @@ ARCHITECTURE behavioral OF i2c_master IS
     --Counters signals--
     SIGNAL r_clock_counter : INTEGER RANGE 0 TO CLK_DIV * 4; -- counter to divide clock
     SIGNAL r_bit_loop_counter : INTEGER RANGE 7 DOWNTO 0; -- bit counter to iterate on a byte
-    SIGNAL r_write_counter : INTEGER RANGE 0 TO 31; -- number of word (bytes) to be written
-    SIGNAL r_read_counter : INTEGER RANGE 0 TO 31; -- number of word (bytes) to be read
+    SIGNAL r_write_counter : std_logic_vector(N - 1 DOWNTO 0); -- number of word (bytes) to be written
+    SIGNAL r_read_counter : std_logic_vector(N - 1 DOWNTO 0); -- number of word (bytes) to be read
     --Status signals--
     SIGNAL r_busy : std_logic; -- busy status
     SIGNAL r_read_mode : std_logic;
@@ -57,6 +57,8 @@ ARCHITECTURE behavioral OF i2c_master IS
     SIGNAL r_i2c_end : std_logic;
     SIGNAL r_ack : std_logic;
     SIGNAL r_clock_active : std_logic;
+    SIGNAL r_write_stop : std_logic;
+    SIGNAL r_read_stop : std_logic;
     --Data signals--
     SIGNAL r_data : std_logic_vector(7 DOWNTO 0);
     SIGNAL w_data_out : std_logic_vector(7 DOWNTO 0);
@@ -76,6 +78,7 @@ BEGIN
     o_data_access <= r_data_access;
     o_data_ready <= r_data_ready;
     o_data <= w_data_out;
+
     -- counters
     p_clock_counter : PROCESS (i_clk, i_rst, r_clock_active)
     BEGIN
@@ -142,7 +145,7 @@ BEGIN
         ELSIF rising_edge(i_clk) THEN
             IF (w_i2c_start = '1') THEN
                 r_data <= std_logic_vector(shift_left(resize(unsigned(i_device_address), r_data'length), 1)) & i_R_W;
-                r_write_counter <= r_write_counter + 1;
+                r_write_counter <= std_logic_vector(unsigned(r_write_counter) + 1);
             ELSE
                 r_data <= r_data;
             END IF;
@@ -152,11 +155,11 @@ BEGIN
     p_read_counter : PROCESS (i_clk, i_rst, r_read_mode, r_bit_loop_counter)
     BEGIN
         IF (i_rst = '1') THEN
-            r_read_counter <= 0;
+            r_read_counter <= (OTHERS => '0');
         ELSIF (w_i2c_start = '1') THEN
             r_read_counter <= i_read_byte_nb;
         ELSIF (r_read_mode = '1' AND r_bit_loop_counter = 0) THEN
-            r_read_counter <= r_read_counter - 1;
+            r_read_counter <= std_logic_vector(unsigned(r_read_counter) - 1);
             w_data_out <= r_data;
             r_data_ready <= '1';
         ELSE
@@ -167,11 +170,11 @@ BEGIN
     p_write_counter : PROCESS (i_clk, i_rst, r_write_mode, r_bit_loop_counter)
     BEGIN
         IF (i_rst = '1') THEN
-            r_write_counter <= 0;
+            r_write_counter <= (OTHERS => '0');
         ELSIF (w_i2c_start = '1') THEN
             r_write_counter <= i_write_byte_nb;
         ELSIF (r_write_mode = '1' AND r_bit_loop_counter = 0) THEN
-            r_write_counter <= r_write_counter - 1;
+            r_write_counter <= std_logic_vector(unsigned(r_write_counter) - 1);
             r_data <= i_data;
             r_data_access <= '1';
         ELSE
@@ -230,7 +233,7 @@ BEGIN
                 r_error <= '0';
                 r_clock_active <= '1';
                 IF (r_read_write_done = '0') THEN
-                    IF (r_ack = '1') OR (r_ack = '0' AND r_read_counter = '0') THEN
+                    IF (r_ack = '1') OR (r_ack = '0' AND (r_read_counter = (OTHERS => '0'))) THEN
                         w_st_next <= ST_COUNTERS_STATUS;
                     ELSE
                         w_st_next <= ST_ERROR;
@@ -243,8 +246,8 @@ BEGIN
                 r_busy <= '1';
                 r_error <= '0';
                 r_clock_active <= '0';
-                IF (r_write_counter = '0') THEN
-                    IF (r_read_counter = '0') THEN
+                IF (r_write_counter = (OTHERS => '0')) THEN
+                    IF (r_read_counter = (OTHERS => '0')) THEN
                         w_st_next <= ST_END;
                         r_i2c_end <= '1';
                     ELSE
