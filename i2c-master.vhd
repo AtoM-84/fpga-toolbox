@@ -167,6 +167,7 @@ BEGIN
         END IF;
     END PROCESS p_read_counter;
 
+    
     p_write_counter : PROCESS (i_clk, i_rst, r_write_mode, r_bit_loop_counter)
     BEGIN
         IF (i_rst = '1') THEN
