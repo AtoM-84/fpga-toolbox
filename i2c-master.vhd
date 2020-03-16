@@ -156,6 +156,7 @@ BEGIN
     BEGIN
         IF (i_rst = '1') THEN
             r_read_counter <= (OTHERS => '0');
+            r_data_ready <= '0';
         ELSIF (w_i2c_start = '1') THEN
             r_read_counter <= i_read_byte_nb;
         ELSIF (r_read_mode = '1' AND r_bit_loop_counter = 0) THEN
@@ -164,6 +165,7 @@ BEGIN
             r_data_ready <= '1';
         ELSE
             r_read_counter <= r_read_counter;
+            r_data_ready <= '0';
         END IF;
     END PROCESS p_read_counter;
 
@@ -171,6 +173,7 @@ BEGIN
     BEGIN
         IF (i_rst = '1') THEN
             r_write_counter <= (OTHERS => '0');
+            r_data_access <= '0';
         ELSIF (w_i2c_start = '1') THEN
             r_write_counter <= i_write_byte_nb;
         ELSIF (r_write_mode = '1' AND r_bit_loop_counter = 0) THEN
@@ -179,6 +182,7 @@ BEGIN
             r_data_access <= '1';
         ELSE
             r_write_counter <= r_write_counter;
+            r_data_access <= '0';
         END IF;
     END PROCESS p_write_counter;
 
@@ -252,9 +256,11 @@ BEGIN
                         r_i2c_end <= '1';
                     ELSE
                         w_st_next <= ST_READ_DATA;
+                        r_read_mode <= '1';
                     END IF;
                 ELSE
                     w_st_next <= ST_WRITE_DATA;
+                    r_write_mode <= '1';
                 END IF;
 
             WHEN ST_WRITE_DATA =>
@@ -285,7 +291,7 @@ BEGIN
                 r_busy <= '1';
                 r_error <= '0';
                 r_clock_active <= '0';
-                IF (r_error = '1') THEN
+                IF (r_error = '0') THEN
                     w_st_next <= ST_IDLE;
                 ELSE
                     w_st_next <= r_st_present;
