@@ -18,14 +18,14 @@ ENTITY i2c_master IS
         i_data : IN std_logic_vector(7 DOWNTO 0); -- data input to i2c assessed when data_access is high
         i_sda : IN std_logic; -- serial data from slave - same pin as o_sda
 
-        o_data : OUT std_logic_vector(7 DOWNTO 0); -- data out from i2c to assess when data_ready is high
         o_busy : OUT std_logic; -- busy signal when i2c master interface is out of idle state
         o_error : OUT std_logic; -- error signal to evaluate error code
         o_data_access : OUT std_logic; -- data access signal to evaluate i_data
         o_data_ready : OUT std_logic; -- data ready to signal when o_data can be evaluated
+        o_data : OUT std_logic_vector(7 DOWNTO 0); -- data out from i2c to assess when data_ready is high
         o_i2c_end : OUT std_logic; -- end of transmission signal
         o_scl : OUT std_logic; -- serial clock from master - default to HIGH
-        o_sda : OUT std_logic -- serial data from master - same pin as o_sda
+        o_sda : OUT std_logic -- serial data from master - same pin as i_sda
     );
 END i2c_master;
 
@@ -71,13 +71,21 @@ ARCHITECTURE behavioral OF i2c_master IS
 
 BEGIN
     w_i2c_start <= i_i2c_start;
+    w_device_address <= i_device_address;
+    w_read_byte_nb <= i_read_byte_nb;
+    w_write_byte_nb <= i_write_byte_nb;
+    w_R_W <= i_R_W;
+    w_data_in <= i_data;
+    w_sda_i <= i_sda;
+
     o_busy <= r_busy;
-    o_i2c_end <= r_i2c_end;
-    o_scl <= r_divided_clock;
     o_error <= r_error;
     o_data_access <= r_data_access;
     o_data_ready <= r_data_ready;
     o_data <= w_data_out;
+    o_i2c_end <= r_i2c_end;
+    o_scl <= r_divided_clock;
+    o_sda <= w_sda_o;
 
     -- counters
     p_clock_counter : PROCESS (i_clk, i_rst, r_clock_active)
@@ -111,18 +119,18 @@ BEGIN
     BEGIN
         IF (i_rst = '0') THEN
             r_bit_loop_counter <= 7;
-            o_sda <= '1';
+            w_sda_o <= '1';
         ELSIF rising_edge(i_clk) THEN
             IF ((r_clock_active = '1') AND (r_read_write_done = '0')) THEN
                 IF (r_clock_counter = 0) THEN
                     IF (r_write_mode = '1') THEN
-                        o_sda <= r_data(r_bit_loop_counter);
+                        w_sda_o <= r_data(r_bit_loop_counter);
                     ELSIF (r_write_mode = '0') THEN
-                        o_sda <= '1';
+                        w_sda_o <= '1';
                     END IF;
                 ELSIF (r_clock_counter = CLK_DIV * 2) THEN
                     IF (r_read_mode = '1') THEN
-                        r_data(r_bit_loop_counter) <= i_sda;
+                        r_data(r_bit_loop_counter) <= w_sda_i;
                     ELSIF (r_read_mode = '0') THEN
                         r_data <= r_data;
                     END IF;
@@ -144,7 +152,7 @@ BEGIN
             r_data <= (OTHERS => '0');
         ELSIF rising_edge(i_clk) THEN
             IF (w_i2c_start = '1') THEN
-                r_data <= std_logic_vector(shift_left(resize(unsigned(i_device_address), r_data'length), 1)) & i_R_W;
+                r_data <= std_logic_vector(shift_left(resize(unsigned(w_device_address), r_data'length), 1)) & w_R_W;
                 r_write_counter <= std_logic_vector(unsigned(r_write_counter) + 1);
             ELSE
                 r_data <= r_data;
@@ -158,7 +166,7 @@ BEGIN
             r_read_counter <= (OTHERS => '0');
             r_data_ready <= '0';
         ELSIF (w_i2c_start = '1') THEN
-            r_read_counter <= i_read_byte_nb;
+            r_read_counter <= w_read_byte_nb;
         ELSIF (r_read_mode = '1' AND r_bit_loop_counter = 0) THEN
             r_read_counter <= std_logic_vector(unsigned(r_read_counter) - 1);
             w_data_out <= r_data;
@@ -175,10 +183,10 @@ BEGIN
             r_write_counter <= (OTHERS => '0');
             r_data_access <= '0';
         ELSIF (w_i2c_start = '1') THEN
-            r_write_counter <= i_write_byte_nb;
+            r_write_counter <= w_write_byte_nb;
         ELSIF (r_write_mode = '1' AND r_bit_loop_counter = 0) THEN
             r_write_counter <= std_logic_vector(unsigned(r_write_counter) - 1);
-            r_data <= i_data;
+            r_data <= w_data_in;
             r_data_access <= '1';
         ELSE
             r_write_counter <= r_write_counter;
@@ -192,7 +200,7 @@ BEGIN
             r_ack <= '0';
         ELSIF rising_edge(i_clk) THEN
             IF (r_read_write_done = '1' AND r_clock_counter = CLK_DIV * 2) THEN
-                r_ack <= NOT(i_sda);
+                r_ack <= NOT(w_sda_i);
             ELSIF (r_clock_counter = CLK_DIV * 4) THEN
                 r_read_write_done <= '0';
             END IF;
