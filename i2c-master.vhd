@@ -48,22 +48,26 @@ ARCHITECTURE behavioral OF i2c_master IS
     SIGNAL r_read_counter : std_logic_vector(N - 1 DOWNTO 0); -- number of word (bytes) to be read
     --Status signals--
     SIGNAL r_busy : std_logic; -- busy status
-    SIGNAL r_read_mode : std_logic;
-    SIGNAL r_write_mode : std_logic;
-    SIGNAL r_read_write_done : std_logic;
-    SIGNAL r_error : std_logic; -- error status
-    SIGNAL r_error_code : std_logic_vector(2 DOWNTO 0);
-    SIGNAL w_i2c_start : std_logic;
-    SIGNAL r_i2c_end : std_logic;
-    SIGNAL r_ack : std_logic;
-    SIGNAL r_clock_active : std_logic;
-    SIGNAL r_write_stop : std_logic;
-    SIGNAL r_read_stop : std_logic;
+    SIGNAL r_read_mode : std_logic; -- reading data
+    SIGNAL r_write_mode : std_logic; -- writing data
+    SIGNAL r_read_write_done : std_logic; -- r/w done, acknowledgment to do
+    SIGNAL r_error : std_logic; -- error status error on acknoledgment
+    SIGNAL w_i2c_start : std_logic; -- start input signal
+    SIGNAL r_i2c_end : std_logic; -- status signal to state end of i2c transaction
+    SIGNAL w_device_address : std_logic_vector(6 DOWNTO 0); -- address to provide when starting i2c
+    SIGNAL w_read_byte_nb : std_logic_vector(N - 1 DOWNTO 0);  -- nb of bytes to read to provide when starting i2c
+    SIGNAL w_write_byte_nb : std_logic_vector(N - 1 DOWNTO 0); -- nb of bytes to be written to provide when starting i2c
+    SIGNAL w_RW : std_logic; -- R/W signal to be added to device adresse when starting i2c
+    SIGNAL r_ack : std_logic; -- acknowledgment value read on the i2c serial bus
+    SIGNAL r_clock_active : std_logic; -- divided clock is active (during read/writec/ack state)
     --Data signals--
-    SIGNAL r_data : std_logic_vector(7 DOWNTO 0);
-    SIGNAL w_data_out : std_logic_vector(7 DOWNTO 0);
-    SIGNAL r_data_ready : std_logic;
-    SIGNAL r_data_access : std_logic;
+    SIGNAL r_data : std_logic_vector(7 DOWNTO 0); -- internal register for current data exchange
+    SIGNAL w_data_in : std_logic_vector(7 DOWNTO 0); -- data from the systemto push into i2c master at start up and after each data_access event
+    SIGNAL w_data_out : std_logic_vector(7 DOWNTO 0); -- data to pop out the i2c master IP into the system
+    SIGNAL r_data_ready : std_logic; -- data ready to be read
+    SIGNAL r_data_access : std_logic; -- data collected from data in
+    SIGNAL w_sda_o : std_logic; -- wire to pin for data output
+    SIGNAL w_sda_i : std_logic; -- wire to pin for data input
     SIGNAL r_divided_clock : std_logic;
     --FSM signals--
     SIGNAL r_st_present : t_i2c_master_fsm; -- present state
