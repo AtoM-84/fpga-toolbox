@@ -14,9 +14,9 @@ ENTITY i2c_master IS
         i_device_address : IN std_logic_vector(6 DOWNTO 0); -- device address evaluated when start signal is high
         i_read_byte_nb : IN std_logic_vector(N - 1 DOWNTO 0);
         i_write_byte_nb : IN std_logic_vector(N - 1 DOWNTO 0);
-        i_R_W : IN std_logic; -- Conventions are read = 1, write = 0 from I2C conventions
+        i_RW : IN std_logic; -- Conventions are read = 1, write = 0 from I2C conventions
         i_data : IN std_logic_vector(7 DOWNTO 0); -- data input to i2c assessed when data_access is high
-        i_sda : IN std_logic; -- serial data from slave - same pin as o_sda
+        i_SDA : IN std_logic; -- serial data from slave - same pin as o_sda
 
         o_busy : OUT std_logic; -- busy signal when i2c master interface is out of idle state
         o_error : OUT std_logic; -- error signal to evaluate error code
@@ -24,8 +24,8 @@ ENTITY i2c_master IS
         o_data_ready : OUT std_logic; -- data ready to signal when o_data can be evaluated
         o_data : OUT std_logic_vector(7 DOWNTO 0); -- data out from i2c to assess when data_ready is high
         o_i2c_end : OUT std_logic; -- end of transmission signal
-        o_scl : OUT std_logic; -- serial clock from master - default to HIGH
-        o_sda : OUT std_logic -- serial data from master - same pin as i_sda
+        o_SCL : OUT std_logic; -- serial clock from master - default to HIGH
+        o_SDA : OUT std_logic -- serial data from master - same pin as i_sda
     );
 END i2c_master;
 
@@ -74,7 +74,7 @@ BEGIN
     w_device_address <= i_device_address;
     w_read_byte_nb <= i_read_byte_nb;
     w_write_byte_nb <= i_write_byte_nb;
-    w_R_W <= i_R_W;
+    w_RW <= i_RW;
     w_data_in <= i_data;
     w_sda_i <= i_sda;
 
@@ -152,7 +152,7 @@ BEGIN
             r_data <= (OTHERS => '0');
         ELSIF rising_edge(i_clk) THEN
             IF (w_i2c_start = '1') THEN
-                r_data <= std_logic_vector(shift_left(resize(unsigned(w_device_address), r_data'length), 1)) & w_R_W;
+                r_data <= std_logic_vector(shift_left(resize(unsigned(w_device_address), r_data'length), 1)) & w_RW;
                 r_write_counter <= std_logic_vector(unsigned(r_write_counter) + 1);
             ELSE
                 r_data <= r_data;
