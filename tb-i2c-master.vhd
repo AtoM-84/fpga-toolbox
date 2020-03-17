@@ -14,7 +14,7 @@ ARCHITECTURE rtl OF tb_i2c_master IS
         );
         PORT (
             i_clk : IN std_logic; -- system clock
-            i_rst : IN std_logic; -- asynhcronous reset signal
+            i_rstb : IN std_logic; -- asynhcronous reset signal
             i_i2c_start : IN std_logic; -- start signal (from higher level FSM)
             i_device_address : IN std_logic_vector(6 DOWNTO 0); -- device address evaluated when rising_edge on i_i2c_start signal
             i_read_byte_nb : IN std_logic_vector(N - 1 DOWNTO 0); -- number of bytes to be read/evaluated when rising_edge on i_i2c_start signal
@@ -38,7 +38,7 @@ ARCHITECTURE rtl OF tb_i2c_master IS
     CONSTANT N : INTEGER := 8;
 
     SIGNAL i_clk : std_logic := '0';
-    SIGNAL i_rst : std_logic;
+    SIGNAL i_rstb : std_logic;
     SIGNAL i_i2c_start : IN std_logic;
     SIGNAL i_device_address : IN std_logic_vector(6 DOWNTO 0);
     SIGNAL i_read_byte_nb : IN std_logic_vector(N - 1 DOWNTO 0);
@@ -60,19 +60,18 @@ ARCHITECTURE rtl OF tb_i2c_master IS
     SIGNAL master_to_slave_test_vector : std_logic_vector(N - 1 DOWNTO 0);
     SIGNAL slave_to_master_test_vector : std_logic_vector(N - 1 DOWNTO 0);
     SIGNAL SCL_counter : INTEGER;
-    SIGNAL count_fall : INTEGER;
 
 BEGIN
 
     i_clk <= NOT i_clk AFTER 5 ns; -- 100MHz simulated clock
-    i_rst <= '0', '1' AFTER 163 ns;
+    i_rstb <= '0', '1' AFTER 163 ns;
     u_i2c_master : i2c_master
     GENERIC MAP(
         N => N,
         CLK_DIV => CLK_DIV)
     PORT MAP(
         i_clk => i_clk,
-        i_rst => i_rst,
+        i_rstb => i_rstb,
         i_i2c_start => i_i2c_start,
         o_i2c_end => o_i2c_end,
         o_SCL => o_SCL,
@@ -89,5 +88,30 @@ BEGIN
         o_data_access => o_data_access,
         o_data_ready => o_data_ready
     );
+
+    p_control : PROCESS (i_clk, i_rstb)
+        VARIABLE v_control : unsigned(7 DOWNTO 0); -- !!!!! Valeur à modifier
+    BEGIN
+        IF (i_rstb = '0') THEN
+            v_control := (OTHERS => '0');
+            i_i2c_start <= '0';
+            i_device_address <= std_logic_vector(to_unsigned(16#5F#, 7)); -- address is device #95
+            i_RW <= '1'; -- read mode
+            i_write_byte_nb <= 255; -- 256 octets à écrire
+            i_read_byte_nb <= 255; -- 256 octets à lire
+            master_to_slave_test_vector <= 0;
+        ELSIF (rising_edge(i_clk)) THEN
+        -- action dans cette boucle : lancer le start, sur data access incrémenter le test vector et attendre en sortie pour produire un acknowledgment
+            v_control := v_control + 1; -- !!!!! Valeur à modifier
+            IF (v_control = 10) THEN -- !!!!! Valeur à modifier
+                i_i2c_start <= '1';
+            ELSE
+                i_i2c_start <= '0';
+            END IF;
+            if (o_data_access = '1') then
+                master_to_slave_test_vector <= master_to_slave_test_vector + 1;
+            end if ;
+        END IF;
+    END PROCESS p_control;
 
 END behavioral;
