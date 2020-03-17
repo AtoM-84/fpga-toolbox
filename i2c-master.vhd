@@ -10,18 +10,18 @@ ENTITY i2c_master IS
     PORT (
         i_clk : IN std_logic; -- system clock
         i_rst : IN std_logic; -- asynhcronous reset signal
-        i_i2c_start : IN std_logic; -- start signal (from FSM)
-        i_device_address : IN std_logic_vector(6 DOWNTO 0); -- device address evaluated when start signal is high
-        i_read_byte_nb : IN std_logic_vector(N - 1 DOWNTO 0);
-        i_write_byte_nb : IN std_logic_vector(N - 1 DOWNTO 0);
-        i_RW : IN std_logic; -- Conventions are read = 1, write = 0 from I2C conventions
-        i_data : IN std_logic_vector(7 DOWNTO 0); -- data input to i2c assessed when data_access is high
+        i_i2c_start : IN std_logic; -- start signal (from higher level FSM)
+        i_device_address : IN std_logic_vector(6 DOWNTO 0); -- device address evaluated when rising_edge on i_i2c_start signal
+        i_read_byte_nb : IN std_logic_vector(N - 1 DOWNTO 0); -- number of bytes to be read/evaluated when rising_edge on i_i2c_start signal
+        i_write_byte_nb : IN std_logic_vector(N - 1 DOWNTO 0); --number of bytes to be written/when rising_edge on i_i2c_start signal
+        i_RW : IN std_logic; -- Conventions are read = 1, write = 0 from I2C conventions/when rising_edge on i_i2c_start signal
+        i_data : IN std_logic_vector(7 DOWNTO 0); -- data input to i2c assessed when rising_edge on o_data_access/to be updated after each o_data_access event
         i_SDA : IN std_logic; -- serial data from slave - same pin as o_sda
 
-        o_busy : OUT std_logic; -- busy signal when i2c master interface is out of idle state
-        o_error : OUT std_logic; -- error signal to evaluate error code
+        o_busy : OUT std_logic; -- busy signal when i2c-master is out of idle state
+        o_error : OUT std_logic; -- error signal (acknowledgment not received)
         o_data_access : OUT std_logic; -- data access signal to evaluate i_data
-        o_data_ready : OUT std_logic; -- data ready to signal when o_data can be evaluated
+        o_data_ready : OUT std_logic; -- data ready to signal when new data available at o_data
         o_data : OUT std_logic_vector(7 DOWNTO 0); -- data out from i2c to assess when data_ready is high
         o_i2c_end : OUT std_logic; -- end of transmission signal
         o_SCL : OUT std_logic; -- serial clock from master - default to HIGH
@@ -76,7 +76,7 @@ BEGIN
     w_write_byte_nb <= i_write_byte_nb;
     w_RW <= i_RW;
     w_data_in <= i_data;
-    w_sda_i <= i_sda;
+    w_sda_i <= i_SDA;
 
     o_busy <= r_busy;
     o_error <= r_error;
@@ -84,8 +84,8 @@ BEGIN
     o_data_ready <= r_data_ready;
     o_data <= w_data_out;
     o_i2c_end <= r_i2c_end;
-    o_scl <= r_divided_clock;
-    o_sda <= w_sda_o;
+    o_SCL <= r_divided_clock;
+    o_SDA <= w_sda_o;
 
     -- counters
     p_clock_counter : PROCESS (i_clk, i_rst, r_clock_active)
