@@ -9,7 +9,7 @@ ENTITY i2c_master IS
     );
     PORT (
         i_clk : IN std_logic; -- system clock
-        i_rst : IN std_logic; -- asynhcronous reset signal
+        i_rstb : IN std_logic; -- asynhcronous reset signal
         i_i2c_start : IN std_logic; -- start signal (from higher level FSM)
         i_device_address : IN std_logic_vector(6 DOWNTO 0); -- device address evaluated when rising_edge on i_i2c_start signal
         i_read_byte_nb : IN std_logic_vector(N - 1 DOWNTO 0); -- number of bytes to be read/evaluated when rising_edge on i_i2c_start signal
@@ -88,9 +88,9 @@ BEGIN
     o_SDA <= w_sda_o;
 
     -- counters
-    p_clock_counter : PROCESS (i_clk, i_rst, r_clock_active)
+    p_clock_counter : PROCESS (i_clk, i_rstb, r_clock_active)
     BEGIN
-        IF (i_rst = '0') THEN
+        IF (i_rstb = '0') THEN
             r_clock_counter <= 0;
             r_divided_clock <= '1';
         ELSIF rising_edge(i_clk) THEN
@@ -115,9 +115,9 @@ BEGIN
         END IF;
     END PROCESS p_clock_counter;
 
-    p_bit_loop_counter : PROCESS (i_clk, i_rst, r_clock_active, r_clock_counter, r_write_mode, r_read_mode, r_read_write_done)
+    p_bit_loop_counter : PROCESS (i_clk, i_rstb, r_clock_active, r_clock_counter, r_write_mode, r_read_mode, r_read_write_done)
     BEGIN
-        IF (i_rst = '0') THEN
+        IF (i_rstb = '0') THEN
             r_bit_loop_counter <= 7;
             w_sda_o <= '1';
         ELSIF rising_edge(i_clk) THEN
@@ -146,9 +146,9 @@ BEGIN
         END IF;
     END PROCESS p_bit_loop_counter;
 
-    p_addressing_start : PROCESS (i_clk, i_rst, w_i2c_start)
+    p_addressing_start : PROCESS (i_clk, i_rstb, w_i2c_start)
     BEGIN
-        IF (i_rst = '0') THEN
+        IF (i_rstb = '0') THEN
             r_data <= (OTHERS => '0');
         ELSIF rising_edge(i_clk) THEN
             IF (w_i2c_start = '1') THEN
@@ -160,9 +160,9 @@ BEGIN
         END IF;
     END PROCESS p_addressing_start;
 
-    p_read_counter : PROCESS (i_clk, i_rst, r_read_mode, r_bit_loop_counter)
+    p_read_counter : PROCESS (i_clk, i_rstb, r_read_mode, r_bit_loop_counter)
     BEGIN
-        IF (i_rst = '1') THEN
+        IF (i_rstb = '1') THEN
             r_read_counter <= (OTHERS => '0');
             r_data_ready <= '0';
         ELSIF (w_i2c_start = '1') THEN
@@ -177,9 +177,9 @@ BEGIN
         END IF;
     END PROCESS p_read_counter;
 
-    p_write_counter : PROCESS (i_clk, i_rst, r_write_mode, r_bit_loop_counter)
+    p_write_counter : PROCESS (i_clk, i_rstb, r_write_mode, r_bit_loop_counter)
     BEGIN
-        IF (i_rst = '1') THEN
+        IF (i_rstb = '1') THEN
             r_write_counter <= (OTHERS => '0');
             r_data_access <= '0';
         ELSIF (w_i2c_start = '1') THEN
@@ -194,9 +194,9 @@ BEGIN
         END IF;
     END PROCESS p_write_counter;
 
-    p_acknowledgement : PROCESS (i_clk, i_rst, r_clock_counter, r_read_write_done)
+    p_acknowledgement : PROCESS (i_clk, i_rstb, r_clock_counter, r_read_write_done)
     BEGIN
-        IF (i_rst = '0') THEN
+        IF (i_rstb = '0') THEN
             r_ack <= '0';
         ELSIF rising_edge(i_clk) THEN
             IF (r_read_write_done = '1' AND r_clock_counter = CLK_DIV * 2) THEN
@@ -207,9 +207,9 @@ BEGIN
         END IF;
     END PROCESS p_acknowledgement;
     -- State changer and FSM
-    p_state : PROCESS (i_clk, i_rst, w_i2c_start, r_read_write_done, r_ack, r_write_counter, r_read_counter)
+    p_state : PROCESS (i_clk, i_rstb, w_i2c_start, r_read_write_done, r_ack, r_write_counter, r_read_counter)
     BEGIN
-        IF (i_rst = '0') THEN
+        IF (i_rstb = '0') THEN
             r_st_present <= ST_IDLE;
         ELSIF (rising_edge(i_clk)) THEN
             r_st_present <= w_st_next;
