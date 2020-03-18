@@ -5,7 +5,6 @@ USE ieee.numeric_std.ALL;
 ENTITY i2c_master_tx IS
     GENERIC (
         CLK_DIV : INTEGER := 25;
-        N : INTEGER := 6
     );
     PORT (
         i_clk : IN std_logic;
