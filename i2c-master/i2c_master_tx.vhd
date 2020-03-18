@@ -23,7 +23,7 @@ END i2c_master_tx;
 
 ARCHITECTURE behavioral OF i2c_master_tx IS
 
-    TYPE t_i2c_master_fsm IS (
+    TYPE t_i2c_master_tx_fsm IS (
         ST_IDLE,
         ST_START,
         ST_ACKNOWLEDGMENT,
@@ -44,8 +44,8 @@ ARCHITECTURE behavioral OF i2c_master_tx IS
     SIGNAL r_i2c_tx_ack : std_logic;
     SIGNAL r_scl_clock : std_logic;
     --FSM signals--
-    SIGNAL r_st_present : t_i2c_master_fsm;
-    SIGNAL w_st_next : t_i2c_master_fsm;
+    SIGNAL r_st_present : t_i2c_master_tx_fsm;
+    SIGNAL w_st_next : t_i2c_master_tx_fsm;
 
 BEGIN
     o_i2c_tx_end <= r_i2c_tx_end;
