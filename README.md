@@ -2,21 +2,26 @@
 
 ### i2c-master
 
-An Inter-Integrated Circuit IP to interface I2C as a master device. The IP is based on an unique file and has to be used with a FSM which will provide the necessary informations required to communicate with a slave device:
+An Inter-Integrated Circuit IP to interface I2C as a master device. The IP is based on two lower level modules, i2c_master_tx and i2c_master_rx.
 
-* i_device_address : a 7-bit address for the slave device
-* i_R_W : the direction Read or Write of the next transaction with the device
-* i_read_byte_nb : the number of bytes to be read based on the expected transaction
-* i_write_byte_nb  : the number of bytes to be written
-* i_data : a byte which is the next to be sent to be changed after each an o_data_access rising_edge
+#### i2c_master_controller
 
-The signals and data retrieved from the IP are :
-* o_busy to indicate when a transaction is occuring
-* o_error to alert when an error occured (to be used with the vector o_error_code for more details)
-* o_data to collect a data on o_data_ready rising_edge
+The controller module is in charge of 
+ * checking for errors (nack),
+ * building the first message from 7-bit slave address and R/W bit,
+ * controlling status of modules tx and rx (busy state),
+ * starting the transaction with i_i2c_rx_start or i_i2c_tx_start,
+ * retrieving data and/or ack on i_i2c_rx_end or i_i2c_tx_end,
+ * returning an i2c_master interface availability status.
 
-The signals o_data_ready and o_data_access are HIGH respectively when a new data is ready at the output and a new data collected is to be sent. A transaction is started by i2c_start and is finished when i2c_end is fired.
+#### i2c_master_tx
 
-Others signals (o_SCL and bidirectionnal i_SDA and o_SDA signals) have to be connected to ports/pins.
+The i2c_master_tx module pushes on serial i2c bus the data at i_data on an i2c_tx_start event. The acknoledgment from slave is retrieved by sampling o_i2c_tx_ack on o_i2c_tx_end event. Do not attempt to use during a busy state (o_i2c_tx_busy = 1), otherwise the command would be ignored.
 
-An IP i2c-master-controller is provided to interact with in/out FIFO.
+Transmission uses o_SDA pin but i_SDA pin is also used for acknowledgment purpose. The o_SCL pin is the clock signal for the master to trigger the slave to sample the master data.
+
+#### i2c_master_rx
+
+The i2c_master_rx collects data on i2c serial bus and delivers it at o_data on an i2c_rx_start event. The acknoledgment and the data from slave is retrieved on o_i2c_rx_end event. Attempting a new cycle during a busy state (o_i2c_rx_busy = 1) will not affect the on-going process. The data collected will be associated with the start event triggered during the last busy = o_i2c_rx_0 state.
+
+Data reception only uses i_SDA pin for data sampling and acknowledgment. The o_SCL pin is the clock signal for the slave to send back its data.
