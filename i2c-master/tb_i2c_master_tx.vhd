@@ -9,8 +9,7 @@ ARCHITECTURE behavioral OF tb_i2c_master_tx IS
 
     COMPONENT i2c_master_tx IS
         GENERIC (
-            CLK_DIV : INTEGER := 25;
-            N : INTEGER := 6
+            CLK_DIV : INTEGER := 25
         );
         PORT (
             i_clk : IN std_logic;
@@ -28,7 +27,6 @@ ARCHITECTURE behavioral OF tb_i2c_master_tx IS
     END COMPONENT;
 
     CONSTANT CLK_DIV : INTEGER := 25;
-    CONSTANT N : INTEGER := 6;
 
     SIGNAL i_clk : std_logic := '0';
     SIGNAL i_rst_n : std_logic;
@@ -55,8 +53,7 @@ BEGIN
 
     u_i2c_master_tx : i2c_master_tx
     GENERIC MAP(
-        CLK_DIV => CLK_DIV,
-        N => N
+        CLK_DIV => CLK_DIV
     )
     PORT MAP(
         i_clk => i_clk,
@@ -104,7 +101,7 @@ BEGIN
                     i_SDA <= '1';
                     counter_for_ack := 0;
                 END IF;
-                else
+            ELSE
                 counter_for_ack := counter_for_ack + 1;
             END IF;
         END IF;
