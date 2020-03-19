@@ -4,7 +4,7 @@ USE ieee.numeric_std.ALL;
 
 ENTITY i2c_master_tx IS
     GENERIC (
-        CLK_DIV : INTEGER := 25;
+        CLK_DIV : INTEGER := 25
     );
     PORT (
         i_clk : IN std_logic;
@@ -106,8 +106,6 @@ BEGIN
                 ELSIF (r_clock_counter = CLK_DIV * 4 - 2) THEN
                     IF (r_bit_loop_counter = 0) THEN
                         r_i2c_tx_done <= '1';
-                        o_SDA <= '1';
-                        r_bit_loop_counter <= 7;
                     ELSE
                         r_i2c_tx_done <= '0';
                         r_bit_loop_counter <= r_bit_loop_counter - 1;
