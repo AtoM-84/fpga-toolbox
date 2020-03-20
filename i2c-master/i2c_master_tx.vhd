@@ -10,7 +10,7 @@ ENTITY i2c_master_tx IS
         i_clk : IN std_logic;
         i_rst_n : IN std_logic;
         i_i2c_tx_start : IN std_logic;
-        i_data : IN std_logic_vector(7 DOWNTO 0);
+        i_data_tx_in : IN std_logic_vector(7 DOWNTO 0);
         i_SDA : IN std_logic;
 
         o_i2c_tx_ack : OUT std_logic;
@@ -58,7 +58,7 @@ BEGIN
             r_data_in <= (OTHERS => '0');
         ELSIF rising_edge(i_clk) THEN
             IF (i_i2c_tx_start = '1') THEN
-                r_data_in <= i_data;
+                r_data_in <= i_data_tx_in;
             END IF;
         END IF;
     END PROCESS p_data_in;

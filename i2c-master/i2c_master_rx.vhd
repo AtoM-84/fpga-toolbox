@@ -12,7 +12,7 @@ ENTITY i2c_master_rx IS
         i_i2c_rx_start : IN std_logic;
         i_SDA : IN std_logic;
 
-        o_data : OUT std_logic_vector(7 DOWNTO 0);
+        o_data_rx_out : OUT std_logic_vector(7 DOWNTO 0);
         o_i2c_rx_ack : OUT std_logic;
         o_i2c_rx_end : OUT std_logic;
         o_i2c_rx_busy : OUT std_logic;
@@ -114,7 +114,7 @@ BEGIN
         ELSIF rising_edge(i_clk) THEN
             IF (i_i2c_rx_start = '1') THEN
                 o_i2c_rx_ack <= '0';
-                o_data <= (OTHERS => '0');
+                o_data_rx_out <= (OTHERS => '0');
             END IF;
             IF (r_i2c_rx_active = '0') THEN
                 IF (r_clock_counter = 0) THEN
@@ -125,7 +125,7 @@ BEGIN
                     r_i2c_ack_done <= '0';
                 ELSIF (r_clock_counter = CLK_DIV * 4 - 2) THEN
                     o_i2c_rx_ack <= r_i2c_rx_ack;
-                    o_data <= r_data_out;
+                    o_data_rx_out <= r_data_out;
                     r_i2c_ack_done <= '1';
                 END IF;
             END IF;

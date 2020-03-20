@@ -17,7 +17,7 @@ ARCHITECTURE behavioral OF tb_i2c_master_rx IS
             i_i2c_rx_start : IN std_logic;
             i_SDA : IN std_logic;
 
-            o_data : OUT std_logic_vector(7 DOWNTO 0);
+            o_data_rx_out : OUT std_logic_vector(7 DOWNTO 0);
             o_i2c_rx_ack : OUT std_logic;
             o_i2c_rx_end : OUT std_logic;
             o_i2c_rx_busy : OUT std_logic;
@@ -32,7 +32,7 @@ ARCHITECTURE behavioral OF tb_i2c_master_rx IS
     SIGNAL i_i2c_rx_start : std_logic;
     SIGNAL i_SDA : std_logic;
 
-    SIGNAL o_data : std_logic_vector(7 DOWNTO 0);
+    SIGNAL o_data_rx_out : std_logic_vector(7 DOWNTO 0);
     SIGNAL o_i2c_rx_ack : std_logic;
     SIGNAL o_i2c_rx_end : std_logic;
     SIGNAL o_i2c_rx_busy : std_logic;
@@ -57,7 +57,7 @@ BEGIN
         i_clk => i_clk,
         i_rst_n => i_rst_n,
         i_i2c_rx_start => i_i2c_rx_start,
-        o_data => o_data,
+        o_data_rx_out => o_data_rx_out,
         o_i2c_rx_ack => o_i2c_rx_ack,
         o_i2c_rx_end => o_i2c_rx_end,
         o_i2c_rx_busy => o_i2c_rx_busy,

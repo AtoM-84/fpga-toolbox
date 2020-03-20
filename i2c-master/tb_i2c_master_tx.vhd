@@ -15,7 +15,7 @@ ARCHITECTURE behavioral OF tb_i2c_master_tx IS
             i_clk : IN std_logic;
             i_rst_n : IN std_logic;
             i_i2c_tx_start : IN std_logic;
-            i_data : IN std_logic_vector(7 DOWNTO 0);
+            i_data_tx_in : IN std_logic_vector(7 DOWNTO 0);
             i_SDA : IN std_logic;
 
             o_i2c_tx_ack : OUT std_logic;
@@ -31,7 +31,7 @@ ARCHITECTURE behavioral OF tb_i2c_master_tx IS
     SIGNAL i_clk : std_logic := '0';
     SIGNAL i_rst_n : std_logic;
     SIGNAL i_i2c_tx_start : std_logic;
-    SIGNAL i_data : std_logic_vector(7 DOWNTO 0);
+    SIGNAL i_data_tx_in : std_logic_vector(7 DOWNTO 0);
 
     SIGNAL o_i2c_tx_ack : std_logic;
     SIGNAL o_i2c_tx_end : std_logic;
@@ -59,7 +59,7 @@ BEGIN
         i_clk => i_clk,
         i_rst_n => i_rst_n,
         i_i2c_tx_start => i_i2c_tx_start,
-        i_data => i_data,
+        i_data_tx_in => i_data_tx_in,
         o_i2c_tx_ack => o_i2c_tx_ack,
         o_i2c_tx_end => o_i2c_tx_end,
         o_i2c_tx_busy => o_i2c_tx_busy,
@@ -82,7 +82,7 @@ BEGIN
             i_i2c_tx_start <= '0';
         ELSIF (rising_edge(i_clk)) THEN
             IF (o_i2c_tx_busy = '0' AND counter_for_ack = 500) THEN
-                i_data <= test_signal_tx;
+                i_data_tx_in <= test_signal_tx;
                 i_SDA <= '1';
                 i_i2c_tx_start <= '1';
                 counter_for_ack := counter_for_ack + 1;
