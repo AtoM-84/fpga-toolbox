@@ -68,6 +68,7 @@ ARCHITECTURE behavioral OF i2c_master_controller IS
         );
     END COMPONENT i2c_master_tx;
 
+    -- new types
     TYPE t_i2c_master_controller_fsm IS (
         ST_IDLE,
         ST_START_I2C,
@@ -77,6 +78,7 @@ ARCHITECTURE behavioral OF i2c_master_controller IS
         ST_READ_I2C,
         ST_ERROR,
         ST_END);
+    -- constant
     CONSTANT CLOCK_DIVIDER : INTEGER := 25;
     -- clock and asynchronous signals
     SIGNAL w_clk : std_logic;
@@ -96,6 +98,7 @@ ARCHITECTURE behavioral OF i2c_master_controller IS
     SIGNAL r_read_counter : INTEGER RANGE 0 TO 2 ** (N - 1);
     -- data
     SIGNAL r_start_byte : std_logic_vector(7 DOWNTO 0);
+
     -- signals to connect to modules
     ---- status signals
     SIGNAL w_i2c_tx_start : std_logic;
@@ -109,7 +112,13 @@ ARCHITECTURE behavioral OF i2c_master_controller IS
     ---- data signals
     SIGNAL w_data_tx_in : std_logic_vector(7 DOWNTO 0);
     SIGNAL w_data_rx_out : std_logic_vector(7 DOWNTO 0);
-
+    ---- pin/ports
+    SIGNAL w_i_SDA_tx : std_logic;
+    SIGNAL w_i_SDA_rx : std_logic;
+    SIGNAL w_o_SDA_tx : std_logic;
+    SIGNAL w_SCL_rx : std_logic;
+    SIGNAL w_SCL_tx : std_logic;
+    ---- states
     SIGNAL r_st_present : t_i2c_master_controller_fsm;
     SIGNAL w_st_next : t_i2c_master_controller_fsm;
 
@@ -120,6 +129,12 @@ BEGIN
     o_busy_i2c <= w_i2c_tx_busy OR w_i2c_rx_busy;
     o_error_i2c <= r_error;
     o_end_i2c <= r_end_i2c;
+    o_SDA <= w_o_SDA_rx WHEN (r_read_mode = '1') ELSE
+        w_o_SDA_tx WHEN (r_write_mode = '1');
+    i_SDA <= w_i_SDA_rx WHEN (r_read_mode = '1') ELSE
+        w_i_SDA_tx WHEN (r_write_mode = '1');
+    o_SCL <= w_SCL_rx WHEN (r_read_mode = '1') ELSE
+        w_SCL_tx WHEN (r_write_mode = '1');
 
     u_i2c_master_tx : i2c_master_tx
     GENERIC MAP(
@@ -133,9 +148,9 @@ BEGIN
         o_i2c_tx_ack => w_i2c_tx_ack,
         o_i2c_tx_end => w_i2c_tx_end,
         o_i2c_tx_busy => w_i2c_tx_busy,
-        i_SDA => i_SDA,
-        o_SDA => o_SDA,
-        o_SCL => o_SCL
+        i_SDA => w_i_SDA_tx,
+        o_SDA => w_o_SDA_tx,
+        o_SCL => w_SCL_tx
     );
 
     u_i2c_master_rx : i2c_master_rx
@@ -150,8 +165,8 @@ BEGIN
         o_i2c_rx_ack => w_i2c_rx_ack,
         o_i2c_rx_end => w_i2c_rx_end,
         o_i2c_rx_busy => w_i2c_rx_busy,
-        i_SDA => i_SDA,
-        o_SCL => o_SCL
+        i_SDA => w_i_SDA_rx,
+        o_SCL => w_SCL_rx
     );
 
     p_load_and_build_start_sequence : PROCESS (i_clk, i_rst_n, w_start_i2c)
