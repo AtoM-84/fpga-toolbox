@@ -92,7 +92,7 @@ ARCHITECTURE behavioral OF i2c_master_controller IS
     SIGNAL r_write_mode : std_logic;
     SIGNAL r_read_mode : std_logic;
     -- counters 
-    SIGNAL r_write_counter : INTEGER RANGE 0 TO 2 ** (N - 1);
+    SIGNAL r_write_counter : INTEGER RANGE 0 TO (2 ** (N - 1) + 1);
     SIGNAL r_read_counter : INTEGER RANGE 0 TO 2 ** (N - 1);
     -- data
     SIGNAL r_start_byte : std_logic_vector(7 DOWNTO 0);
@@ -167,22 +167,6 @@ BEGIN
         END IF;
     END PROCESS p_load_and_build_start_sequence;
 
-    p_write_start_sequence : PROCESS (i_clk, i_rst_n, r_start_sequence)
-    BEGIN
-        IF (i_rst_n = '0') THEN
-            w_data_tx_in <= (OTHERS => '0');
-            w_i2c_tx_start <= '0';
-        ELSIF rising_edge(i_clk) THEN
-            IF (r_start_sequence = '1') THEN
-                w_data_tx_in <= r_start_byte;
-                w_i2c_tx_start <= '1';
-            ELSE
-                w_data_tx_in <= (OTHERS => '0');
-                w_i2c_tx_start <= '0';
-            END IF;
-        END IF;
-    END PROCESS p_write_start_sequence;
-
     p_dispatch : PROCESS (i_clk, i_rst_n, w_start_i2c)
     BEGIN
         IF (i_rst_n = '0') THEN
@@ -192,7 +176,7 @@ BEGIN
             r_read_end <= '0';
         ELSIF rising_edge(i_clk) THEN
             IF (w_start_i2c = '1') THEN
-                r_write_counter <= to_integer(unsigned(i_write_byte_nb));
+                r_write_counter <= to_integer(unsigned(i_write_byte_nb)) + 1;
                 r_read_counter <= to_integer(unsigned(i_read_byte_nb));
                 r_write_end <= '0';
                 r_read_end <= '0';
@@ -222,6 +206,7 @@ BEGIN
     BEGIN
         IF (i_rst_n = '0') THEN
             o_data_out <= (OTHERS => '0');
+            w_data_tx_in <= (OTHERS => '0');
             w_i2c_tx_start <= '0';
             w_i2c_rx_start <= '0';
         ELSIF rising_edge(i_clk) THEN
@@ -240,6 +225,13 @@ BEGIN
                     o_data_out <= w_data_rx_out;
                 ELSIF (w_i2c_rx_end = '0' AND w_i2c_rx_busy = '0') THEN
                     w_i2c_rx_start <= '1';
+                END IF;
+            ELSIF (r_start_sequence = '1') THEN
+                IF (w_i2c_tx_end = '0' AND w_i2c_tx_busy = '0') THEN
+                    w_data_tx_in <= r_start_byte;
+                    w_i2c_tx_start <= '1';
+                ELSE
+                    w_i2c_tx_start <= '0';
                 END IF;
             ELSE
                 w_data_tx_in <= (OTHERS => '0');
