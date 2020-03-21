@@ -129,12 +129,15 @@ BEGIN
     o_busy_i2c <= w_i2c_tx_busy OR w_i2c_rx_busy;
     o_error_i2c <= r_error;
     o_end_i2c <= r_end_i2c;
-    o_SDA <= w_o_SDA_rx WHEN (r_read_mode = '1') ELSE
-        w_o_SDA_tx WHEN (r_write_mode = '1');
-    i_SDA <= w_i_SDA_rx WHEN (r_read_mode = '1') ELSE
-        w_i_SDA_tx WHEN (r_write_mode = '1');
+    o_SDA <= w_o_SDA_tx WHEN (r_write_mode = '1') ELSE
+        'Z';
+    w_i_SDA_rx <= i_SDA WHEN (r_read_mode = '1') ELSE
+        '1';
+    w_i_SDA_tx <= i_SDA WHEN (r_write_mode = '1') ELSE
+        '1';
     o_SCL <= w_SCL_rx WHEN (r_read_mode = '1') ELSE
-        w_SCL_tx WHEN (r_write_mode = '1');
+        w_SCL_tx WHEN (r_write_mode = '1') ELSE
+        'Z';
 
     u_i2c_master_tx : i2c_master_tx
     GENERIC MAP(
@@ -240,6 +243,7 @@ BEGIN
                     o_data_out <= w_data_rx_out;
                 ELSIF (w_i2c_rx_end = '0' AND w_i2c_rx_busy = '0') THEN
                     w_i2c_rx_start <= '1';
+                    o_new_data_out <= '0';
                 END IF;
             ELSIF (r_start_sequence = '1') THEN
                 IF (w_i2c_tx_end = '0' AND w_i2c_tx_busy = '0') THEN
@@ -379,7 +383,7 @@ BEGIN
                 r_write_mode <= '0';
                 r_read_mode <= '0';
                 r_error <= '0';
-                r_end_i2c <= '0';
+                r_end_i2c <= '1';
                 IF (w_i2c_tx_busy = '1' OR w_i2c_rx_busy = '1') THEN
                     w_st_next <= r_st_present;
                 ELSE
