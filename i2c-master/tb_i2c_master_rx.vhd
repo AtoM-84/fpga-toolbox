@@ -18,9 +18,9 @@ ARCHITECTURE behavioral OF tb_i2c_master_rx IS
             i_SDA : IN std_logic;
 
             o_data_rx_out : OUT std_logic_vector(7 DOWNTO 0);
-            o_i2c_rx_ack : OUT std_logic;
             o_i2c_rx_end : OUT std_logic;
             o_i2c_rx_busy : OUT std_logic;
+            o_SDA : OUT std_logic;
             o_SCL : OUT std_logic
         );
     END COMPONENT;
@@ -33,9 +33,9 @@ ARCHITECTURE behavioral OF tb_i2c_master_rx IS
     SIGNAL i_SDA : std_logic;
 
     SIGNAL o_data_rx_out : std_logic_vector(7 DOWNTO 0);
-    SIGNAL o_i2c_rx_ack : std_logic;
     SIGNAL o_i2c_rx_end : std_logic;
     SIGNAL o_i2c_rx_busy : std_logic;
+    SIGNAL o_SDA : std_logic;
     SIGNAL o_SCL : std_logic;
 
     SIGNAL test_signal_rx : std_logic_vector(7 DOWNTO 0);
@@ -58,9 +58,9 @@ BEGIN
         i_rst_n => i_rst_n,
         i_i2c_rx_start => i_i2c_rx_start,
         o_data_rx_out => o_data_rx_out,
-        o_i2c_rx_ack => o_i2c_rx_ack,
         o_i2c_rx_end => o_i2c_rx_end,
         o_i2c_rx_busy => o_i2c_rx_busy,
+        o_SDA => o_SDA,
         i_SDA => i_SDA,
         o_SCL => o_SCL
     );
@@ -111,11 +111,10 @@ BEGIN
                 ELSIF (receiving_byte = '0') THEN
                     IF (system_clock_ticks = 205 AND o_SCL = '0') THEN
                         receiving_byte <= '1';
-                    ELSIF (system_clock_ticks = 1025) THEN
-                        i_SDA <= '0';
-                    ELSIF (system_clock_ticks = 1085) THEN
-                        i_SDA <= '1';
-                        test_vector_rx := test_vector_rx - 1;
+                    ELSIF (system_clock_ticks = 1050) THEN
+                        IF (o_SDA = '0') THEN
+                            test_vector_rx := test_vector_rx - 1;
+                        END IF;
                     ELSIF (o_i2c_rx_end = '1') THEN
                         system_clock_ticks := 0;
                     END IF;

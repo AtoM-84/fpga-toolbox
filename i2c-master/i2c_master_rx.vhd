@@ -13,9 +13,9 @@ ENTITY i2c_master_rx IS
         i_SDA : IN std_logic;
 
         o_data_rx_out : OUT std_logic_vector(7 DOWNTO 0);
-        o_i2c_rx_ack : OUT std_logic;
         o_i2c_rx_end : OUT std_logic;
         o_i2c_rx_busy : OUT std_logic;
+        o_SDA : OUT std_logic;
         o_SCL : OUT std_logic
     );
 END i2c_master_rx;
@@ -40,7 +40,6 @@ ARCHITECTURE behavioral OF i2c_master_rx IS
     SIGNAL r_clock_active : std_logic;
     --Data signals--
     SIGNAL r_data_out : std_logic_vector(7 DOWNTO 0);
-    SIGNAL r_i2c_rx_ack : std_logic;
     SIGNAL r_scl_clock : std_logic;
     --FSM signals--
     SIGNAL r_st_present : t_i2c_master_rx_fsm;
@@ -106,25 +105,25 @@ BEGIN
         END IF;
     END PROCESS p_bit_loop_counter;
     ----------------------------------------------------------------
-    p_acknowledgment : PROCESS (i_clk, i_rst_n, r_i2c_rx_done)
+    p_acknowledgment : PROCESS (i_clk, i_rst_n, r_i2c_rx_active)
     BEGIN
         IF (i_rst_n = '0') THEN
-            r_i2c_rx_ack <= '0';
             r_i2c_ack_done <= '0';
+            o_SDA <= '1';
         ELSIF rising_edge(i_clk) THEN
             IF (i_i2c_rx_start = '1') THEN
-                o_i2c_rx_ack <= '0';
                 o_data_rx_out <= (OTHERS => '0');
+                o_SDA <= '1';
             END IF;
             IF (r_i2c_rx_active = '0') THEN
                 IF (r_clock_counter = 0) THEN
-                    r_i2c_rx_ack <= '0';
+                    o_SDA <= '1';
                     r_i2c_ack_done <= '0';
-                ELSIF (r_clock_counter = CLK_DIV * 2) THEN
-                    r_i2c_rx_ack <= NOT(i_SDA);
+                ELSIF (r_clock_counter = CLK_DIV - 2) THEN
+                    o_SDA <= '0';
                     r_i2c_ack_done <= '0';
                 ELSIF (r_clock_counter = CLK_DIV * 4 - 2) THEN
-                    o_i2c_rx_ack <= r_i2c_rx_ack;
+                    o_SDA <= '1';
                     o_data_rx_out <= r_data_out;
                     r_i2c_ack_done <= '1';
                 END IF;
@@ -143,7 +142,7 @@ BEGIN
         END IF;
     END PROCESS p_state;
 
-    p_fsm : PROCESS (r_st_present, i_i2c_rx_start, r_i2c_rx_ack, r_i2c_ack_done, r_i2c_rx_done)
+    p_fsm : PROCESS (r_st_present, i_i2c_rx_start, r_i2c_ack_done, r_i2c_rx_done)
     BEGIN
         CASE r_st_present IS
             WHEN ST_IDLE =>
